@@ -1052,8 +1052,8 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
                 "// This file is automatically created by glslcc v%d.%d.%d\n"
                 "// http://www.github.com/septag/glslcc\n"
                 "// \n"
-                "#pragma once\n\n",
-                VERSION_MAJOR, VERSION_MINOR, VERSION_SUB);
+                "package shaders\n\n",
+                VERSION_MAJOR, VERSION_MINOR, VERSION_SUB, cvar);
             sx_file_write_text(&writer, header);
         }
 
@@ -1082,9 +1082,11 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
         }
         const char* aligned_ptr = (const char*)aligned_data;
 
-        sx_snprintf(var, sizeof(var), "static const unsigned int %s_size = %d;\n", cvar, len);
+        // sx_snprintf(var, sizeof(var), "static const unsigned int %s_size = %d;\n", cvar, len);
+        sx_snprintf(var, sizeof(var), "%s_size :: %d\n", cvar, len);
         sx_file_write_text(&writer, var);
-        sx_snprintf(var, sizeof(var), "static const unsigned int %s_data[%d/4] = {\n\t", cvar, aligned_len);
+        // sx_snprintf(var, sizeof(var), "static const unsigned int %s_data[%d/4] = {\n\t", cvar, aligned_len);
+        sx_snprintf(var, sizeof(var), "%s_data : [%d/4]u32 = {\n\t", cvar, aligned_len);
         sx_file_write_text(&writer, var);
 
         sx_assert(aligned_len % sizeof(uint32_t) == 0);
@@ -1093,7 +1095,7 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
             if (i != uint_count - 1) {
                 sx_snprintf(hex, sizeof(hex), "0x%08x, ", *aligned_data);
             } else {
-                sx_snprintf(hex, sizeof(hex), "0x%08x };\n", *aligned_data);
+                sx_snprintf(hex, sizeof(hex), "0x%08x }\n", *aligned_data);
             }
             sx_file_write_text(&writer, hex);
 
