@@ -1049,11 +1049,10 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
             // file header
             char header[512];
             sx_snprintf(header, sizeof(header),
-                "// This file is automatically created by glslcc v%d.%d.%d\n"
-                "// http://www.github.com/septag/glslcc\n"
-                "// \n"
-                "package shaders\n\n",
-                VERSION_MAJOR, VERSION_MINOR, VERSION_SUB, cvar);
+                "# This file is automatically created by glslcc v%d.%d.%d\n"
+                "# http://www.github.com/septag/glslcc\n"
+                "# \n\n",
+                VERSION_MAJOR, VERSION_MINOR, VERSION_SUB);
             sx_file_write_text(&writer, header);
         }
 
@@ -1083,10 +1082,10 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
         const char* aligned_ptr = (const char*)aligned_data;
 
         // sx_snprintf(var, sizeof(var), "static const unsigned int %s_size = %d;\n", cvar, len);
-        sx_snprintf(var, sizeof(var), "%s_size :: %d\n", cvar, len);
+        sx_snprintf(var, sizeof(var), "const %s_size*: uint32 = %d\n", cvar, len);
         sx_file_write_text(&writer, var);
         // sx_snprintf(var, sizeof(var), "static const unsigned int %s_data[%d/4] = {\n\t", cvar, aligned_len);
-        sx_snprintf(var, sizeof(var), "%s_data : [%d/4]u32 = {\n\t", cvar, aligned_len);
+        sx_snprintf(var, sizeof(var), "const %s_data*: array[%d/4, uint32] = [\n\t", cvar, aligned_len);
         sx_file_write_text(&writer, var);
 
         sx_assert(aligned_len % sizeof(uint32_t) == 0);
@@ -1095,7 +1094,7 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
             if (i != uint_count - 1) {
                 sx_snprintf(hex, sizeof(hex), "0x%08x, ", *aligned_data);
             } else {
-                sx_snprintf(hex, sizeof(hex), "0x%08x }\n", *aligned_data);
+                sx_snprintf(hex, sizeof(hex), "0x%08x ]\n", *aligned_data);
             }
             sx_file_write_text(&writer, hex);
 
@@ -1280,7 +1279,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 sx_os_path_splitext(ext, sizeof(ext), basename, sizeof(basename), args.out_filepath);
                 filepath = std::string(basename) + std::string("_") + std::string(get_stage_name(stage)) + std::string(ext);
             }
-            bool append = !cvar_code.empty() & (file_index > 0);
+            bool append = !cvar_code.empty() && (file_index > 0);
 
             // Check if we have to compile byte-code or output the source only
             if (args.compile_bin) {
