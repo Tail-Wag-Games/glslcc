@@ -1085,7 +1085,7 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
         sx_snprintf(var, sizeof(var), "const %s_size*: uint32 = %d\n", cvar, len);
         sx_file_write_text(&writer, var);
         // sx_snprintf(var, sizeof(var), "static const unsigned int %s_data[%d/4] = {\n\t", cvar, aligned_len);
-        sx_snprintf(var, sizeof(var), "const %s_data*: array[%d/4, uint32] = [\n\t", cvar, aligned_len);
+        sx_snprintf(var, sizeof(var), "var %s_data*: array[int(%d/4), uint32] = [\n  ", cvar, aligned_len);
         sx_file_write_text(&writer, var);
 
         sx_assert(aligned_len % sizeof(uint32_t) == 0);
@@ -1100,7 +1100,7 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
 
             ++char_offset;
             if (char_offset == items_per_line) {
-                sx_file_write_text(&writer, "\n\t");
+                sx_file_write_text(&writer, "\n  ");
                 char_offset = 0;
             }
 
