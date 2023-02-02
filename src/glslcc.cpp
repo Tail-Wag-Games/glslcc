@@ -66,9 +66,9 @@
 #endif
 
 // sjson
-#define sjson_malloc(user, size) sx_malloc((const sx_alloc*)user, size)
-#define sjson_free(user, ptr) sx_free((const sx_alloc*)user, ptr)
-#define sjson_realloc(user, ptr, size) sx_realloc((const sx_alloc*)user, ptr, size)
+#define sjson_malloc(user, size) sx_malloc((const sx_alloc *)user, size)
+#define sjson_free(user, ptr) sx_free((const sx_alloc *)user, ptr)
+#define sjson_realloc(user, ptr, size) sx_realloc((const sx_alloc *)user, ptr, size)
 #define sjson_assert(e) sx_assert(e);
 #define sjson_snprintf sx_snprintf
 #define sjson_strcpy(dst, n, src) sx_strcpy(dst, n, src)
@@ -79,43 +79,49 @@
 #define VERSION_MINOR 7
 #define VERSION_SUB 6
 
-static const sx_alloc* g_alloc = sx_alloc_malloc();
-static sgs_file* g_sgs = nullptr;
+static const sx_alloc *g_alloc = sx_alloc_malloc();
+static sgs_file *g_sgs = nullptr;
 
-struct p_define {
-    char* def;
-    char* val;
+struct p_define
+{
+    char *def;
+    char *val;
 };
 
-enum shader_lang {
+enum shader_lang
+{
     SHADER_LANG_GLES = 0,
     SHADER_LANG_HLSL,
     SHADER_LANG_MSL,
     SHADER_LANG_GLSL,
+    SHADER_LANG_SPIRV,
     SHADER_LANG_COUNT
 };
 
-enum output_error_format {
+enum output_error_format
+{
     OUTPUT_ERRORFORMAT_GLSLANG = 0,
     OUTPUT_ERRORFORMAT_MSVC,
     OUTPUT_ERRORFORMAT_GCC
 };
 
-static const char* k_shader_types[SHADER_LANG_COUNT] = {
+static const char *k_shader_types[SHADER_LANG_COUNT] = {
     "gles",
     "hlsl",
     "msl",
-    "glsl"
-};
+    "glsl",
+    "spirv"};
 
 static const uint32_t k_shader_langs_fourcc[SHADER_LANG_COUNT] = {
     SGS_LANG_GLES,
     SGS_LANG_HLSL,
     SGS_LANG_MSL,
-    SGS_LANG_GLSL
+    SGS_LANG_GLSL,
+    SGS_LANG_SPIRV,
 };
 
-enum vertex_attribs {
+enum vertex_attribs
+{
     VERTEX_POSITION = 0,
     VERTEX_NORMAL,
     VERTEX_TEXCOORD0,
@@ -137,7 +143,7 @@ enum vertex_attribs {
     VERTEX_ATTRIB_COUNT
 };
 
-static const char* k_attrib_names[VERTEX_ATTRIB_COUNT] = {
+static const char *k_attrib_names[VERTEX_ATTRIB_COUNT] = {
     "POSITION",
     "NORMAL",
     "TEXCOORD0",
@@ -155,10 +161,9 @@ static const char* k_attrib_names[VERTEX_ATTRIB_COUNT] = {
     "TANGENT",
     "BINORMAL",
     "BLENDINDICES",
-    "BLENDWEIGHT"
-};
+    "BLENDWEIGHT"};
 
-static const char* k_attrib_sem_names[VERTEX_ATTRIB_COUNT] = {
+static const char *k_attrib_sem_names[VERTEX_ATTRIB_COUNT] = {
     "POSITION",
     "NORMAL",
     "TEXCOORD",
@@ -176,8 +181,7 @@ static const char* k_attrib_sem_names[VERTEX_ATTRIB_COUNT] = {
     "TANGENT",
     "BINORMAL",
     "BLENDINDICES",
-    "BLENDWEIGHT"
-};
+    "BLENDWEIGHT"};
 
 static int k_attrib_sem_indices[VERTEX_ATTRIB_COUNT] = {
     0,
@@ -197,11 +201,11 @@ static int k_attrib_sem_indices[VERTEX_ATTRIB_COUNT] = {
     0,
     0,
     0,
-    0
-};
+    0};
 
 // Includer
-class Includer : public glslang::TShader::Includer {
+class Includer : public glslang::TShader::Includer
+{
 public:
     Includer() : glslang::TShader::Includer()
     {
@@ -215,33 +219,37 @@ public:
 
     virtual ~Includer() {}
 
-    IncludeResult* includeSystem(const char* headerName,
-        const char* includerName,
-        size_t inclusionDepth) override
+    IncludeResult *includeSystem(const char *headerName,
+                                 const char *includerName,
+                                 size_t inclusionDepth) override
     {
-        for (auto i = m_systemDirs.begin(); i != m_systemDirs.end(); ++i) {
+        for (auto i = m_systemDirs.begin(); i != m_systemDirs.end(); ++i)
+        {
             std::string header_path(*i);
             if (!header_path.empty() && header_path.back() != '/')
                 header_path += "/";
             header_path += headerName;
 
-            if (sx_os_stat(header_path.c_str()).type == SX_FILE_TYPE_REGULAR) {
-                sx_mem_block* mem = sx_file_load_bin(g_alloc, header_path.c_str());
-                if (mem) {
-                    if (m_listIncludes) {
+            if (sx_os_stat(header_path.c_str()).type == SX_FILE_TYPE_REGULAR)
+            {
+                sx_mem_block *mem = sx_file_load_bin(g_alloc, header_path.c_str());
+                if (mem)
+                {
+                    if (m_listIncludes)
+                    {
                         puts(header_path.c_str());
                     }
                     return new (sx_malloc(g_alloc, sizeof(IncludeResult)))
-                        IncludeResult(header_path, (const char*)mem->data, (size_t)mem->size, mem);
+                        IncludeResult(header_path, (const char *)mem->data, (size_t)mem->size, mem);
                 }
             }
         }
         return nullptr;
     }
 
-    IncludeResult* includeLocal(const char* headerName,
-        const char* includerName,
-        size_t inclusionDepth) override
+    IncludeResult *includeLocal(const char *headerName,
+                                const char *includerName,
+                                size_t inclusionDepth) override
     {
         char cur_dir[256];
         sx_os_path_pwd(cur_dir, sizeof(cur_dir));
@@ -251,23 +259,26 @@ public:
             header_path += "/";
         header_path += headerName;
 
-        sx_mem_block* mem = sx_file_load_bin(g_alloc, header_path.c_str());
-        if (mem) {
-            if (m_listIncludes) {
+        sx_mem_block *mem = sx_file_load_bin(g_alloc, header_path.c_str());
+        if (mem)
+        {
+            if (m_listIncludes)
+            {
                 puts(headerName);
             }
             return new (sx_malloc(g_alloc, sizeof(IncludeResult)))
-                IncludeResult(header_path, (const char*)mem->data, (size_t)mem->size, mem);
+                IncludeResult(header_path, (const char *)mem->data, (size_t)mem->size, mem);
         }
         return nullptr;
     }
 
     // Signals that the parser will no longer use the contents of the
     // specified IncludeResult.
-    void releaseInclude(IncludeResult* result) override
+    void releaseInclude(IncludeResult *result) override
     {
-        if (result) {
-            sx_mem_block* mem = (sx_mem_block*)result->userData;
+        if (result)
+        {
+            sx_mem_block *mem = (sx_mem_block *)result->userData;
             if (mem)
                 sx_mem_destroy_block(mem);
             result->~IncludeResult();
@@ -275,16 +286,17 @@ public:
         }
     }
 
-    void addSystemDir(const char* dir)
+    void addSystemDir(const char *dir)
     {
         std::string std_dir(dir);
         std::replace(std_dir.begin(), std_dir.end(), '\\', '/');
         m_systemDirs.push_back(std_dir);
     }
 
-    void addIncluder(const Includer& includer)
+    void addIncluder(const Includer &includer)
     {
-        for (const std::string& inc : includer.m_systemDirs) {
+        for (const std::string &inc : includer.m_systemDirs)
+        {
             m_systemDirs.push_back(inc);
         }
     }
@@ -294,13 +306,14 @@ private:
     bool m_listIncludes;
 };
 
-struct cmd_args {
-    const char* vs_filepath;
-    const char* fs_filepath;
-    const char* cs_filepath;
-    const char* out_filepath;
+struct cmd_args
+{
+    const char *vs_filepath;
+    const char *fs_filepath;
+    const char *cs_filepath;
+    const char *out_filepath;
     shader_lang lang;
-    p_define* defines;
+    p_define *defines;
     Includer includer;
     int profile_ver;
     int invert_y;
@@ -315,8 +328,8 @@ struct cmd_args {
     int validate;
     int list_includes;
     output_error_format err_format;
-    const char* cvar;
-    const char* reflect_filepath;
+    const char *cvar;
+    const char *reflect_filepath;
 };
 
 static void print_version()
@@ -325,7 +338,7 @@ static void print_version()
     puts("http://www.github.com/septag/glslcc");
 }
 
-static void print_help(sx_cmdline_context* ctx)
+static void print_help(sx_cmdline_context *ctx)
 {
     char buffer[4096];
     print_version();
@@ -338,13 +351,15 @@ static void print_help(sx_cmdline_context* ctx)
     exit(0);
 }
 
-static shader_lang parse_shader_lang(const char* arg)
+static shader_lang parse_shader_lang(const char *arg)
 {
     if (sx_strequalnocase(arg, "metal"))
         arg = "msl";
 
-    for (int i = 0; i < SHADER_LANG_COUNT; i++) {
-        if (sx_strequalnocase(k_shader_types[i], arg)) {
+    for (int i = 0; i < SHADER_LANG_COUNT; i++)
+    {
+        if (sx_strequalnocase(k_shader_types[i], arg))
+        {
             return (shader_lang)i;
         }
     }
@@ -353,39 +368,46 @@ static shader_lang parse_shader_lang(const char* arg)
     exit(-1);
 }
 
-static output_error_format parse_output_errorformat(const char* arg)
+static output_error_format parse_output_errorformat(const char *arg)
 {
-    if (sx_strequalnocase(arg, "msvc")) {
+    if (sx_strequalnocase(arg, "msvc"))
+    {
         return OUTPUT_ERRORFORMAT_MSVC;
-    } else if (sx_strequalnocase(arg, "glslang")) {
+    }
+    else if (sx_strequalnocase(arg, "glslang"))
+    {
         return OUTPUT_ERRORFORMAT_GLSLANG;
     }
 
     return OUTPUT_ERRORFORMAT_GLSLANG;
 }
 
-static void parse_defines(cmd_args* args, const char* defines)
+static void parse_defines(cmd_args *args, const char *defines)
 {
     sx_assert(defines);
-    const char* def = defines;
+    const char *def = defines;
 
-    do {
+    do
+    {
         def = sx_skip_whitespace(def);
-        if (def[0]) {
-            const char* next_def = sx_strchar(def, ',');
+        if (def[0])
+        {
+            const char *next_def = sx_strchar(def, ',');
             if (!next_def)
                 next_def = sx_strchar(def, ';');
             int len = next_def ? (int)(uintptr_t)(next_def - def) : sx_strlen(def);
 
-            if (len > 0) {
-                p_define d = { 0x0 };
-                d.def = (char*)sx_malloc(g_alloc, len + 1);
+            if (len > 0)
+            {
+                p_define d = {0x0};
+                d.def = (char *)sx_malloc(g_alloc, len + 1);
                 sx_strncpy(d.def, len + 1, def, len);
                 sx_trim_whitespace(d.def, len + 1, d.def);
 
                 // Check def=value pair
-                char* equal = (char*)sx_strchar(d.def, '=');
-                if (equal) {
+                char *equal = (char *)sx_strchar(d.def, '=');
+                if (equal)
+                {
                     *equal = 0;
                     d.val = equal + 1;
                 }
@@ -394,7 +416,8 @@ static void parse_defines(cmd_args* args, const char* defines)
             }
 
             def = next_def;
-            if (def) {
+            if (def)
+            {
                 def++;
             }
         }
@@ -402,16 +425,17 @@ static void parse_defines(cmd_args* args, const char* defines)
 }
 
 #ifdef D3D11_COMPILER
-static sx_mem_block* compile_binary(const char* code, const char* filename,
-    int profile_version, EShLanguage stage, int debug)
+static sx_mem_block *compile_binary(const char *code, const char *filename,
+                                    int profile_version, EShLanguage stage, int debug)
 {
-    ID3DBlob* output = NULL;
-    ID3DBlob* errors = NULL;
+    ID3DBlob *output = NULL;
+    ID3DBlob *errors = NULL;
 
     int major_ver = profile_version / 10;
     int minor_ver = profile_version % 10;
     char target[32];
-    switch (stage) {
+    switch (stage)
+    {
     case EShLangVertex:
         sx_snprintf(target, sizeof(target), "vs_%d_%d", major_ver, minor_ver);
         break;
@@ -430,46 +454,50 @@ static sx_mem_block* compile_binary(const char* code, const char* filename,
         compile_flags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 
     HRESULT hr = D3DCompile(
-        code, /* pSrcData */
+        code,            /* pSrcData */
         sx_strlen(code), /* SrcDataSize */
-        filename, /* pSourceName */
-        NULL, /* pDefines */
-        NULL, /* pInclude */
-        "main", /* pEntryPoint */
-        target, /* pTarget (vs_5_0 or ps_5_0) */
-        compile_flags, /* Flags1 */
-        0, /* Flags2 */
-        &output, /* ppCode */
-        &errors); /* ppErrorMsgs */
+        filename,        /* pSourceName */
+        NULL,            /* pDefines */
+        NULL,            /* pInclude */
+        "main",          /* pEntryPoint */
+        target,          /* pTarget (vs_5_0 or ps_5_0) */
+        compile_flags,   /* Flags1 */
+        0,               /* Flags2 */
+        &output,         /* ppCode */
+        &errors);        /* ppErrorMsgs */
 
-    if (FAILED(hr)) {
-        if (errors) {
+    if (FAILED(hr))
+    {
+        if (errors)
+        {
             puts((LPCSTR)errors->GetBufferPointer());
             errors->Release();
         }
         return nullptr;
     }
 
-    sx_mem_block* mem = sx_mem_create_block(g_alloc,
-        (int)output->GetBufferSize(),
-        output->GetBufferPointer());
+    sx_mem_block *mem = sx_mem_create_block(g_alloc,
+                                            (int)output->GetBufferSize(),
+                                            output->GetBufferPointer());
     output->Release();
     return mem;
 }
 #endif
 
-static void cleanup_args(cmd_args* args)
+static void cleanup_args(cmd_args *args)
 {
-    for (int i = 0; i < sx_array_count(args->defines); i++) {
+    for (int i = 0; i < sx_array_count(args->defines); i++)
+    {
         if (args->defines[i].def)
             sx_free(g_alloc, args->defines[i].def);
     }
     sx_array_free(g_alloc, args->defines);
 }
 
-static const char* get_stage_name(EShLanguage stage)
+static const char *get_stage_name(EShLanguage stage)
 {
-    switch (stage) {
+    switch (stage)
+    {
     case EShLangVertex:
         return "vs";
     case EShLangFragment:
@@ -482,19 +510,22 @@ static const char* get_stage_name(EShLanguage stage)
     }
 }
 
-static void parse_includes(cmd_args* args, const char* includes)
+static void parse_includes(cmd_args *args, const char *includes)
 {
     sx_assert(includes);
-    const char* inc = includes;
+    const char *inc = includes;
 
-    do {
+    do
+    {
         inc = sx_skip_whitespace(inc);
-        if (inc[0]) {
-            const char* next_inc = sx_strchar(inc, ';');
+        if (inc[0])
+        {
+            const char *next_inc = sx_strchar(inc, ';');
             int len = next_inc ? (int)(uintptr_t)(next_inc - inc) : sx_strlen(inc);
 
-            if (len > 0) {
-                char* inc_str = (char*)sx_malloc(g_alloc, len + 1);
+            if (len > 0)
+            {
+                char *inc_str = (char *)sx_malloc(g_alloc, len + 1);
                 sx_assert(inc_str);
                 sx_strncpy(inc_str, len + 1, inc, len);
                 args->includer.addSystemDir(inc_str);
@@ -502,21 +533,24 @@ static void parse_includes(cmd_args* args, const char* includes)
             }
 
             inc = next_inc;
-            if (inc) {
+            if (inc)
+            {
                 inc++;
             }
         }
     } while (inc);
 }
 
-static void add_defines(glslang::TShader* shader, const cmd_args& args, std::string& def)
+static void add_defines(glslang::TShader *shader, const cmd_args &args, std::string &def)
 {
     std::vector<std::string> processes;
 
-    for (int i = 0; i < sx_array_count(args.defines); i++) {
-        const p_define& d = args.defines[i];
+    for (int i = 0; i < sx_array_count(args.defines); i++)
+    {
+        const p_define &d = args.defines[i];
         def += "#define " + std::string(d.def);
-        if (d.val) {
+        if (d.val)
+        {
             def += std::string(" ") + std::string(d.val);
         }
         def += std::string("\n");
@@ -530,7 +564,8 @@ static void add_defines(glslang::TShader* shader, const cmd_args& args, std::str
     shader->addProcesses(processes);
 }
 
-enum resource_type {
+enum resource_type
+{
     RES_TYPE_REGULAR = 0,
     RES_TYPE_SSBO,
     RES_TYPE_VERTEX_INPUT,
@@ -538,34 +573,35 @@ enum resource_type {
     RES_TYPE_UNIFORM_BUFFER
 };
 
-struct uniform_type_mapping {
+struct uniform_type_mapping
+{
     spirv_cross::SPIRType::BaseType base_type;
     int vec_size;
     int columns;
-    const char* type_str;
+    const char *type_str;
     uint32_t fourcc;
 };
 
 static const uniform_type_mapping k_uniform_map[] = {
-    { spirv_cross::SPIRType::Float, 1, 1, "float", SGS_VERTEXFORMAT_FLOAT },
-    { spirv_cross::SPIRType::Float, 2, 1, "float2", SGS_VERTEXFORMAT_FLOAT2 },
-    { spirv_cross::SPIRType::Float, 3, 1, "float3", SGS_VERTEXFORMAT_FLOAT3 },
-    { spirv_cross::SPIRType::Float, 4, 1, "float4", SGS_VERTEXFORMAT_FLOAT4 },
-    { spirv_cross::SPIRType::Float, 3, 4, "mat3x4", 0 },
-    { spirv_cross::SPIRType::Float, 3, 4, "mat4x3", 0 },
-    { spirv_cross::SPIRType::Float, 3, 3, "mat3x3", 0 },
-    { spirv_cross::SPIRType::Float, 4, 4, "mat4", 0 },
-    { spirv_cross::SPIRType::Int, 1, 1, "int", SGS_VERTEXFORMAT_INT },
-    { spirv_cross::SPIRType::Int, 2, 1, "int2", SGS_VERTEXFORMAT_INT2 },
-    { spirv_cross::SPIRType::Int, 3, 1, "int3", SGS_VERTEXFORMAT_INT3 },
-    { spirv_cross::SPIRType::Int, 4, 1, "int4", SGS_VERTEXFORMAT_INT4 },
-    { spirv_cross::SPIRType::Half, 4, 1, "float", SGS_VERTEXFORMAT_FLOAT },
-    { spirv_cross::SPIRType::Half, 4, 2, "float2", SGS_VERTEXFORMAT_FLOAT2 },
-    { spirv_cross::SPIRType::Half, 4, 3, "float3", SGS_VERTEXFORMAT_FLOAT3 },
-    { spirv_cross::SPIRType::Half, 4, 4, "float4", SGS_VERTEXFORMAT_FLOAT4 }
-};
+    {spirv_cross::SPIRType::Float, 1, 1, "float", SGS_VERTEXFORMAT_FLOAT},
+    {spirv_cross::SPIRType::Float, 2, 1, "float2", SGS_VERTEXFORMAT_FLOAT2},
+    {spirv_cross::SPIRType::Float, 3, 1, "float3", SGS_VERTEXFORMAT_FLOAT3},
+    {spirv_cross::SPIRType::Float, 4, 1, "float4", SGS_VERTEXFORMAT_FLOAT4},
+    {spirv_cross::SPIRType::Float, 3, 4, "mat3x4", 0},
+    {spirv_cross::SPIRType::Float, 3, 4, "mat4x3", 0},
+    {spirv_cross::SPIRType::Float, 3, 3, "mat3x3", 0},
+    {spirv_cross::SPIRType::Float, 4, 4, "mat4", 0},
+    {spirv_cross::SPIRType::Int, 1, 1, "int", SGS_VERTEXFORMAT_INT},
+    {spirv_cross::SPIRType::Int, 2, 1, "int2", SGS_VERTEXFORMAT_INT2},
+    {spirv_cross::SPIRType::Int, 3, 1, "int3", SGS_VERTEXFORMAT_INT3},
+    {spirv_cross::SPIRType::Int, 4, 1, "int4", SGS_VERTEXFORMAT_INT4},
+    {spirv_cross::SPIRType::Half, 4, 1, "float", SGS_VERTEXFORMAT_FLOAT},
+    {spirv_cross::SPIRType::Half, 4, 2, "float2", SGS_VERTEXFORMAT_FLOAT2},
+    {spirv_cross::SPIRType::Half, 4, 3, "float3", SGS_VERTEXFORMAT_FLOAT3},
+    {spirv_cross::SPIRType::Half, 4, 4, "float4", SGS_VERTEXFORMAT_FLOAT4}};
 
-enum ImageFormat {
+enum ImageFormat
+{
     ImageFormatUnknown = 0,
     ImageFormatRgba32f = 1,
     ImageFormatRgba16f = 2,
@@ -609,7 +645,8 @@ enum ImageFormat {
     ImageFormatMax = 0x7fffffff,
 };
 
-enum Dim {
+enum Dim
+{
     Dim1D = 0,
     Dim2D = 1,
     Dim3D = 2,
@@ -620,7 +657,7 @@ enum Dim {
     DimMax = 0x7fffffff,
 };
 
-const char* k_texture_format_str[spv::ImageFormatR8ui + 1] = {
+const char *k_texture_format_str[spv::ImageFormatR8ui + 1] = {
     "unknown",
     "Rgba32f",
     "Rgba16f",
@@ -660,18 +697,16 @@ const char* k_texture_format_str[spv::ImageFormatR8ui + 1] = {
     "Rg16ui",
     "Rg8ui",
     "R16ui",
-    "R8ui"
-};
+    "R8ui"};
 
-const char* k_texture_dim_str[spv::DimSubpassData + 1] = {
+const char *k_texture_dim_str[spv::DimSubpassData + 1] = {
     "1d",
     "2d",
     "3d",
     "cube",
     "rect",
     "buffer",
-    "subpass_data"
-};
+    "subpass_data"};
 
 const uint32_t k_texture_dim_fourcc[spv::DimSubpassData + 1] = {
     SGS_IMAGEDIM_1D,
@@ -680,30 +715,33 @@ const uint32_t k_texture_dim_fourcc[spv::DimSubpassData + 1] = {
     SGS_IMAGEDIM_CUBE,
     SGS_IMAGEDIM_RECT,
     SGS_IMAGEDIM_BUFFER,
-    SGS_IMAGEDIM_SUBPASS
-};
+    SGS_IMAGEDIM_SUBPASS};
 
 // https://github.com/KhronosGroup/SPIRV-Cross/wiki/Reflection-API-user-guide
-static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
-    const spirv_cross::Compiler& compiler,
-    const spirv_cross::SmallVector<spirv_cross::Resource>& ress,
-    resource_type res_type = RES_TYPE_REGULAR,
-    bool flatten_ubos = false)
+static void output_resource_info_json(sjson_context *jctx, sjson_node *jparent,
+                                      const spirv_cross::Compiler &compiler,
+                                      const spirv_cross::SmallVector<spirv_cross::Resource> &ress,
+                                      resource_type res_type = RES_TYPE_REGULAR,
+                                      bool flatten_ubos = false)
 {
 
-    auto resolve_variable_type = [](const spirv_cross::SPIRType& type) -> const char* {
+    auto resolve_variable_type = [](const spirv_cross::SPIRType &type) -> const char *
+    {
         int count = sizeof(k_uniform_map) / sizeof(uniform_type_mapping);
-        for (int i = 0; i < count; i++) {
-            if (k_uniform_map[i].base_type == type.basetype && k_uniform_map[i].vec_size == type.vecsize && k_uniform_map[i].columns == type.columns) {
+        for (int i = 0; i < count; i++)
+        {
+            if (k_uniform_map[i].base_type == type.basetype && k_uniform_map[i].vec_size == type.vecsize && k_uniform_map[i].columns == type.columns)
+            {
                 return k_uniform_map[i].type_str;
             }
         }
         return "unknown";
     };
 
-    for (auto& res : ress) {
-        sjson_node* jres = sjson_mkobject(jctx);
-        auto& type = compiler.get_type(res.type_id);
+    for (auto &res : ress)
+    {
+        sjson_node *jres = sjson_mkobject(jctx);
+        auto &type = compiler.get_type(res.type_id);
         if (res_type == RES_TYPE_SSBO && compiler.buffer_is_hlsl_counter_buffer(res.id))
             continue;
 
@@ -717,8 +755,9 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
 
         uint32_t block_size = 0;
         uint32_t runtime_array_stride = 0;
-        if (is_sized_block) {
-            auto& base_type = compiler.get_type(res.base_type_id);
+        if (is_sized_block)
+        {
+            auto &base_type = compiler.get_type(res.base_type_id);
             block_size = uint32_t(compiler.get_declared_struct_size(base_type));
             runtime_array_stride = uint32_t(compiler.get_declared_struct_size_runtime_array(base_type, 1) - compiler.get_declared_struct_size_runtime_array(base_type, 0));
         }
@@ -731,9 +770,10 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
 
         sjson_put_int(jctx, jres, "id", res.id);
         sjson_put_string(jctx, jres, "name",
-            !res.name.empty() ? res.name.c_str() : compiler.get_fallback_name(fallback_id).c_str());
+                         !res.name.empty() ? res.name.c_str() : compiler.get_fallback_name(fallback_id).c_str());
 
-        if (!type.array.empty()) {
+        if (!type.array.empty())
+        {
             int arr_sz = 0;
             for (auto arr : type.array)
                 arr_sz += arr;
@@ -741,34 +781,40 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
         }
 
         int loc = -1;
-        if (mask.get(spv::DecorationLocation)) {
+        if (mask.get(spv::DecorationLocation))
+        {
             loc = compiler.get_decoration(res.id, spv::DecorationLocation);
             sjson_put_int(jctx, jres, "location", loc);
         }
 
-        if (mask.get(spv::DecorationDescriptorSet)) {
+        if (mask.get(spv::DecorationDescriptorSet))
+        {
             sjson_put_int(jctx, jres, "set",
-                compiler.get_decoration(res.id, spv::DecorationDescriptorSet));
+                          compiler.get_decoration(res.id, spv::DecorationDescriptorSet));
         }
-        if (mask.get(spv::DecorationBinding)) {
+        if (mask.get(spv::DecorationBinding))
+        {
             sjson_put_int(jctx, jres, "binding",
-                compiler.get_decoration(res.id, spv::DecorationBinding));
+                          compiler.get_decoration(res.id, spv::DecorationBinding));
         }
-        if (mask.get(spv::DecorationInputAttachmentIndex)) {
+        if (mask.get(spv::DecorationInputAttachmentIndex))
+        {
             sjson_put_int(jctx, jres, "attachment",
-                compiler.get_decoration(res.id, spv::DecorationInputAttachmentIndex));
+                          compiler.get_decoration(res.id, spv::DecorationInputAttachmentIndex));
         }
         if (mask.get(spv::DecorationNonReadable))
             sjson_put_bool(jctx, jres, "writeonly", true);
         if (mask.get(spv::DecorationNonWritable))
             sjson_put_bool(jctx, jres, "readonly", true);
-        if (is_sized_block) {
+        if (is_sized_block)
+        {
             sjson_put_int(jctx, jres, "block_size", block_size);
             if (runtime_array_stride)
                 sjson_put_int(jctx, jres, "unsized_array_stride", runtime_array_stride);
         }
 
-        if (res_type == RES_TYPE_VERTEX_INPUT && loc != -1) {
+        if (res_type == RES_TYPE_VERTEX_INPUT && loc != -1)
+        {
             sjson_put_string(jctx, jres, "semantic", k_attrib_sem_names[loc]);
             sjson_put_int(jctx, jres, "semantic_index", k_attrib_sem_indices[loc]);
         }
@@ -778,24 +824,28 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
             sjson_put_int(jctx, jres, "hlsl_counter_buffer_id", counter_id);
 
         // Some extra
-        if (res_type == RES_TYPE_UNIFORM_BUFFER) {
-            if (flatten_ubos) {
+        if (res_type == RES_TYPE_UNIFORM_BUFFER)
+        {
+            if (flatten_ubos)
+            {
                 sjson_put_string(jctx, jres, "type", "float4");
                 sjson_put_int(jctx, jres, "array", sx_max((int)block_size, 16) / 16);
             }
 
-            sjson_node* jmembers = sjson_put_array(jctx, jres, "members");
+            sjson_node *jmembers = sjson_put_array(jctx, jres, "members");
             // members
             int member_idx = 0;
-            for (auto& member_id : type.member_types) {
-                sjson_node* jmember = sjson_mkobject(jctx);
-                auto& member_type = compiler.get_type(member_id);
+            for (auto &member_id : type.member_types)
+            {
+                sjson_node *jmember = sjson_mkobject(jctx);
+                auto &member_type = compiler.get_type(member_id);
 
                 sjson_put_string(jctx, jmember, "name", compiler.get_member_name(type.self, member_idx).c_str());
                 sjson_put_string(jctx, jmember, "type", resolve_variable_type(member_type));
                 sjson_put_int(jctx, jmember, "offset", compiler.type_struct_member_offset(type, member_idx));
                 sjson_put_int(jctx, jmember, "size", (int)compiler.get_declared_struct_member_size(type, member_idx));
-                if (!member_type.array.empty()) {
+                if (!member_type.array.empty())
+                {
                     int arr_sz = 0;
                     for (auto arr : member_type.array)
                         arr_sz += arr;
@@ -805,14 +855,18 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
                 sjson_append_element(jmembers, jmember);
                 member_idx++;
             }
-        } else if (res_type == RES_TYPE_TEXTURE) {
+        }
+        else if (res_type == RES_TYPE_TEXTURE)
+        {
             sjson_put_string(jctx, jres, "dimension", k_texture_dim_str[type.image.dim]);
             sjson_put_string(jctx, jres, "format", k_texture_format_str[type.image.format]);
             if (type.image.ms)
                 sjson_put_bool(jctx, jres, "multisample", true);
             if (type.image.arrayed)
                 sjson_put_bool(jctx, jres, "array", true);
-        } else if (res_type == RES_TYPE_VERTEX_INPUT) {
+        }
+        else if (res_type == RES_TYPE_VERTEX_INPUT)
+        {
             sjson_put_string(jctx, jres, "type", resolve_variable_type(type));
         }
 
@@ -820,15 +874,15 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
     }
 }
 
-static void output_reflection_json(const cmd_args& args, const spirv_cross::Compiler& compiler,
-    const spirv_cross::ShaderResources& ress,
-    const char* filename,
-    EShLanguage stage, std::string* reflect_json, bool pretty = false)
+static void output_reflection_json(const cmd_args &args, const spirv_cross::Compiler &compiler,
+                                   const spirv_cross::ShaderResources &ress,
+                                   const char *filename,
+                                   EShLanguage stage, std::string *reflect_json, bool pretty = false)
 {
-    sjson_context* jctx = sjson_create_context(0, 0, (void*)g_alloc);
+    sjson_context *jctx = sjson_create_context(0, 0, (void *)g_alloc);
     sx_assert(jctx);
 
-    sjson_node* jroot = sjson_mkobject(jctx);
+    sjson_node *jroot = sjson_mkobject(jctx);
     sjson_put_string(jctx, jroot, "language", k_shader_types[args.lang]);
     sjson_put_int(jctx, jroot, "profile_version", args.profile_ver);
     if (args.compile_bin)
@@ -838,14 +892,14 @@ static void output_reflection_json(const cmd_args& args, const spirv_cross::Comp
     if (args.flatten_ubos)
         sjson_put_bool(jctx, jroot, "flatten_ubos", true);
 
-    sjson_node* jshader = sjson_put_obj(jctx, jroot, get_stage_name(stage));
+    sjson_node *jshader = sjson_put_obj(jctx, jroot, get_stage_name(stage));
     sjson_put_string(jctx, jshader, "file", filename);
 
     if (!ress.subpass_inputs.empty())
         output_resource_info_json(jctx, sjson_put_array(jctx, jshader, "subpass_inputs"), compiler, ress.subpass_inputs);
     if (!ress.stage_inputs.empty())
         output_resource_info_json(jctx, sjson_put_array(jctx, jshader, "inputs"), compiler, ress.stage_inputs,
-            (stage == EShLangVertex) ? RES_TYPE_VERTEX_INPUT : RES_TYPE_REGULAR);
+                                  (stage == EShLangVertex) ? RES_TYPE_VERTEX_INPUT : RES_TYPE_REGULAR);
     if (!ress.stage_outputs.empty())
         output_resource_info_json(jctx, sjson_put_array(jctx, jshader, "outputs"), compiler, ress.stage_outputs);
     if (!ress.sampled_images.empty())
@@ -858,16 +912,17 @@ static void output_reflection_json(const cmd_args& args, const spirv_cross::Comp
         output_resource_info_json(jctx, sjson_put_array(jctx, jshader, "storage_images"), compiler, ress.storage_images, RES_TYPE_TEXTURE);
     if (!ress.storage_buffers.empty())
         output_resource_info_json(jctx, sjson_put_array(jctx, jshader, "storage_buffers"), compiler, ress.storage_buffers, RES_TYPE_SSBO);
-    if (!ress.uniform_buffers.empty()) {
+    if (!ress.uniform_buffers.empty())
+    {
         output_resource_info_json(jctx, sjson_put_array(jctx, jshader, "uniform_buffers"), compiler, ress.uniform_buffers,
-            RES_TYPE_UNIFORM_BUFFER, args.flatten_ubos ? true : false);
+                                  RES_TYPE_UNIFORM_BUFFER, args.flatten_ubos ? true : false);
     }
     if (!ress.push_constant_buffers.empty())
         output_resource_info_json(jctx, sjson_put_array(jctx, jshader, "push_cbs"), compiler, ress.push_constant_buffers);
     if (!ress.atomic_counters.empty())
         output_resource_info_json(jctx, sjson_put_array(jctx, jshader, "counters"), compiler, ress.atomic_counters);
 
-    char* json_str;
+    char *json_str;
     if (!pretty)
         json_str = sjson_encode(jctx, jroot);
     else
@@ -877,24 +932,28 @@ static void output_reflection_json(const cmd_args& args, const spirv_cross::Comp
     sjson_destroy_context(jctx);
 }
 
-static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
-    const spirv_cross::Compiler& compiler,
-    const spirv_cross::SmallVector<spirv_cross::Resource>& ress,
-    resource_type res_type = RES_TYPE_REGULAR,
-    bool flatten_ubos = false)
+static void output_resource_info_bin(sx_mem_writer *w, uint32_t *num_values,
+                                     const spirv_cross::Compiler &compiler,
+                                     const spirv_cross::SmallVector<spirv_cross::Resource> &ress,
+                                     resource_type res_type = RES_TYPE_REGULAR,
+                                     bool flatten_ubos = false)
 {
-    auto resolve_variable_type = [](const spirv_cross::SPIRType& type) -> uint32_t {
+    auto resolve_variable_type = [](const spirv_cross::SPIRType &type) -> uint32_t
+    {
         int count = sizeof(k_uniform_map) / sizeof(uniform_type_mapping);
-        for (int i = 0; i < count; i++) {
-            if (k_uniform_map[i].base_type == type.basetype && k_uniform_map[i].vec_size == type.vecsize && k_uniform_map[i].columns == type.columns) {
+        for (int i = 0; i < count; i++)
+        {
+            if (k_uniform_map[i].base_type == type.basetype && k_uniform_map[i].vec_size == type.vecsize && k_uniform_map[i].columns == type.columns)
+            {
                 return k_uniform_map[i].fourcc;
             }
         }
         return 0;
     };
 
-    for (auto& res : ress) {
-        auto& type = compiler.get_type(res.type_id);
+    for (auto &res : ress)
+    {
+        auto &type = compiler.get_type(res.type_id);
         if (res_type == RES_TYPE_SSBO && compiler.buffer_is_hlsl_counter_buffer(res.id))
             continue;
 
@@ -908,8 +967,9 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
 
         uint32_t block_size = 0;
         uint32_t runtime_array_stride = 0;
-        if (is_sized_block) {
-            auto& base_type = compiler.get_type(res.base_type_id);
+        if (is_sized_block)
+        {
+            auto &base_type = compiler.get_type(res.base_type_id);
             block_size = uint32_t(compiler.get_declared_struct_size(base_type));
             runtime_array_stride = uint32_t(compiler.get_declared_struct_size_runtime_array(base_type, 1) - compiler.get_declared_struct_size_runtime_array(base_type, 0));
         }
@@ -920,10 +980,11 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
         else
             mask = compiler.get_decoration_bitset(res.id);
 
-        const char* name = !res.name.empty() ? res.name.c_str() : compiler.get_fallback_name(fallback_id).c_str();
+        const char *name = !res.name.empty() ? res.name.c_str() : compiler.get_fallback_name(fallback_id).c_str();
 
         int array_size = 1;
-        if (!type.array.empty()) {
+        if (!type.array.empty())
+        {
             int arr_sz = 0;
             for (auto arr : type.array)
                 arr_sz += arr;
@@ -932,29 +993,37 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
 
         int loc = -1;
         int binding = -1;
-        if (mask.get(spv::DecorationLocation)) {
+        if (mask.get(spv::DecorationLocation))
+        {
             loc = compiler.get_decoration(res.id, spv::DecorationLocation);
         }
 
-        if (mask.get(spv::DecorationBinding)) {
+        if (mask.get(spv::DecorationBinding))
+        {
             binding = compiler.get_decoration(res.id, spv::DecorationBinding);
         }
 
         // Some extra
-        if (res_type == RES_TYPE_UNIFORM_BUFFER) {
-            sgs_refl_uniformbuffer u = { 0 };
+        if (res_type == RES_TYPE_UNIFORM_BUFFER)
+        {
+            sgs_refl_uniformbuffer u = {0};
 
             sx_strcpy(u.name, sizeof(u.name), name);
             u.binding = binding;
             u.size_bytes = block_size;
-            if (flatten_ubos) {
+            if (flatten_ubos)
+            {
                 u.array_size = (uint16_t)sx_max((int)block_size, 16) / 16;
-            } else {
+            }
+            else
+            {
                 u.array_size = array_size;
             }
             sx_mem_write_var(w, u);
-        } else if (res_type == RES_TYPE_TEXTURE) {
-            sgs_refl_texture t = { 0 };
+        }
+        else if (res_type == RES_TYPE_TEXTURE)
+        {
+            sgs_refl_texture t = {0};
 
             sx_strcpy(t.name, sizeof(t.name), name);
             t.binding = binding;
@@ -962,8 +1031,10 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
             t.multisample = type.image.ms ? 1 : 0;
             t.is_array = type.image.arrayed ? 1 : 0;
             sx_mem_write_var(w, t);
-        } else if (res_type == RES_TYPE_VERTEX_INPUT) {
-            sgs_refl_input i = { 0 };
+        }
+        else if (res_type == RES_TYPE_VERTEX_INPUT)
+        {
+            sgs_refl_input i = {0};
 
             sx_strcpy(i.name, sizeof(i.name), name);
             i.loc = loc;
@@ -971,12 +1042,15 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
             i.semantic_index = k_attrib_sem_indices[loc];
             i.format = resolve_variable_type(type);
             sx_mem_write_var(w, i);
-        } else if (res_type == RES_TYPE_SSBO) {
-            sgs_refl_buffer b = { 0 };
+        }
+        else if (res_type == RES_TYPE_SSBO)
+        {
+            sgs_refl_buffer b = {0};
             sx_strcpy(b.name, sizeof(b.name), name);
             b.binding = binding;
             b.size_bytes = block_size;
-            if (runtime_array_stride) {
+            if (runtime_array_stride)
+            {
                 b.array_stride = runtime_array_stride;
             }
             sx_mem_write_var(w, b);
@@ -986,10 +1060,10 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
     }
 }
 
-static void output_reflection_bin(const cmd_args& args, const spirv_cross::Compiler& compiler,
-    const spirv_cross::ShaderResources& ress,
-    const char* filename,
-    EShLanguage stage, sx_mem_block** refl_mem)
+static void output_reflection_bin(const cmd_args &args, const spirv_cross::Compiler &compiler,
+                                  const spirv_cross::ShaderResources &ress,
+                                  const char *filename,
+                                  EShLanguage stage, sx_mem_block **refl_mem)
 {
     sx_mem_writer w;
     sx_mem_init_writer(&w, g_alloc, 2048);
@@ -1001,29 +1075,35 @@ static void output_reflection_bin(const cmd_args& args, const spirv_cross::Compi
     refl.debug_info = args.debug_bin;
     sx_mem_write_var(&w, refl);
 
-    if (!ress.stage_inputs.empty() && stage == EShLangVertex) {
+    if (!ress.stage_inputs.empty() && stage == EShLangVertex)
+    {
         output_resource_info_bin(&w, &refl.num_inputs, compiler, ress.stage_inputs, RES_TYPE_VERTEX_INPUT);
     }
 
-    if (!ress.uniform_buffers.empty()) {
+    if (!ress.uniform_buffers.empty())
+    {
         output_resource_info_bin(&w, &refl.num_uniform_buffers, compiler, ress.uniform_buffers,
-            RES_TYPE_UNIFORM_BUFFER, args.flatten_ubos ? true : false);
+                                 RES_TYPE_UNIFORM_BUFFER, args.flatten_ubos ? true : false);
     }
 
-    if (!ress.sampled_images.empty()) {
+    if (!ress.sampled_images.empty())
+    {
         output_resource_info_bin(&w, &refl.num_textures, compiler, ress.sampled_images, RES_TYPE_TEXTURE);
     }
 
     // compute shader reflection data
-    if (stage == EShLangCompute) {
-        if (!ress.storage_images.empty()) {
+    if (stage == EShLangCompute)
+    {
+        if (!ress.storage_images.empty())
+        {
             output_resource_info_bin(&w, &refl.num_storage_images, compiler, ress.storage_images,
-                RES_TYPE_TEXTURE);
+                                     RES_TYPE_TEXTURE);
         }
 
-        if (!ress.storage_buffers.empty()) {
+        if (!ress.storage_buffers.empty())
+        {
             output_resource_info_bin(&w, &refl.num_storage_buffers, compiler, ress.storage_buffers,
-                RES_TYPE_SSBO);
+                                     RES_TYPE_SSBO);
         }
     }
 
@@ -1034,25 +1114,27 @@ static void output_reflection_bin(const cmd_args& args, const spirv_cross::Compi
 }
 
 // if binary_size > 0, then we assume the data is binary
-static bool write_file(const char* filepath, const char* data, const char* cvar,
-    bool append = false, int binary_size = -1)
+static bool write_file(const char *filepath, const char *data, const char *cvar,
+                       bool append = false, int binary_size = -1)
 {
     sx_file_writer writer;
     if (!sx_file_open_writer(&writer, filepath, append ? SX_FILE_OPEN_APPEND : 0))
         return false;
 
-    if (cvar && cvar[0]) {
+    if (cvar && cvar[0])
+    {
         const int items_per_line = 8;
 
         // .C file
-        if (!append) {
+        if (!append)
+        {
             // file header
             char header[512];
             sx_snprintf(header, sizeof(header),
-                "# This file is automatically created by glslcc v%d.%d.%d\n"
-                "# http://www.github.com/septag/glslcc\n"
-                "# \n\n",
-                VERSION_MAJOR, VERSION_MINOR, VERSION_SUB);
+                        "# This file is automatically created by glslcc v%d.%d.%d\n"
+                        "# http://www.github.com/septag/glslcc\n"
+                        "# \n\n",
+                        VERSION_MAJOR, VERSION_MINOR, VERSION_SUB);
             sx_file_write_text(&writer, header);
         }
 
@@ -1067,19 +1149,21 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
             len = sx_strlen(data) + 1; // include the '\0' at the end to null-terminate the string
 
         // align data to uint32_t (4)
-        const uint32_t* aligned_data = (const uint32_t*)data;
+        const uint32_t *aligned_data = (const uint32_t *)data;
         int aligned_len = sx_align_mask(len, 3);
-        if (aligned_len > len) {
-            uint32_t* tmp = (uint32_t*)sx_malloc(g_alloc, aligned_len);
-            if (!tmp) {
+        if (aligned_len > len)
+        {
+            uint32_t *tmp = (uint32_t *)sx_malloc(g_alloc, aligned_len);
+            if (!tmp)
+            {
                 sx_out_of_memory();
                 return false;
             }
             sx_memcpy(tmp, data, len);
-            sx_memset((uint8_t*)tmp + len, 0x0, aligned_len - len);
+            sx_memset((uint8_t *)tmp + len, 0x0, aligned_len - len);
             aligned_data = tmp;
         }
-        const char* aligned_ptr = (const char*)aligned_data;
+        const char *aligned_ptr = (const char *)aligned_data;
 
         // sx_snprintf(var, sizeof(var), "static const unsigned int %s_size = %d;\n", cvar, len);
         sx_snprintf(var, sizeof(var), "const %s_size*: uint32 = %d\n", cvar, len);
@@ -1090,16 +1174,21 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
 
         sx_assert(aligned_len % sizeof(uint32_t) == 0);
         int uint_count = aligned_len / 4;
-        for (int i = 0; i < uint_count; i++) {
-            if (i != uint_count - 1) {
+        for (int i = 0; i < uint_count; i++)
+        {
+            if (i != uint_count - 1)
+            {
                 sx_snprintf(hex, sizeof(hex), "0x%08x, ", *aligned_data);
-            } else {
+            }
+            else
+            {
                 sx_snprintf(hex, sizeof(hex), "0x%08x ]\n", *aligned_data);
             }
             sx_file_write_text(&writer, hex);
 
             ++char_offset;
-            if (char_offset == items_per_line) {
+            if (char_offset == items_per_line)
+            {
                 sx_file_write_text(&writer, "\n  ");
                 char_offset = 0;
             }
@@ -1109,10 +1198,13 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
 
         sx_file_write_text(&writer, "\n");
 
-        if (aligned_ptr != data) {
-            sx_free(g_alloc, const_cast<char*>(aligned_ptr));
+        if (aligned_ptr != data)
+        {
+            sx_free(g_alloc, const_cast<char *>(aligned_ptr));
         }
-    } else {
+    }
+    else
+    {
         if (binary_size > 0)
             sx_file_write(&writer, data, binary_size);
         else
@@ -1123,38 +1215,59 @@ static bool write_file(const char* filepath, const char* data, const char* cvar,
     return true;
 }
 
-static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
-    const char* filename, EShLanguage stage, int file_index)
+static int cross_compile(const cmd_args &args, std::vector<uint32_t> &spirv,
+                         const char *filename, EShLanguage stage, int file_index)
 {
     sx_assert(!spirv.empty());
     // Using SPIRV-cross
 
-    try {
+    try
+    {
         std::unique_ptr<spirv_cross::CompilerGLSL> compiler;
         // Use spirv-cross to convert to other types of shader
-        if (args.lang == SHADER_LANG_GLES || args.lang == SHADER_LANG_GLSL) {
+        if (args.lang == SHADER_LANG_GLES || args.lang == SHADER_LANG_GLSL)
+        {
             compiler = std::unique_ptr<spirv_cross::CompilerGLSL>(new spirv_cross::CompilerGLSL(spirv));
-        } else if (args.lang == SHADER_LANG_MSL) {
+        }
+        else if (args.lang == SHADER_LANG_MSL)
+        {
             compiler = std::unique_ptr<spirv_cross::CompilerMSL>(new spirv_cross::CompilerMSL(spirv));
-        } else if (args.lang == SHADER_LANG_HLSL) {
+        }
+        else if (args.lang == SHADER_LANG_HLSL)
+        {
             compiler = std::unique_ptr<spirv_cross::CompilerHLSL>(new spirv_cross::CompilerHLSL(spirv));
-        } else {
+        }
+        else if (args.lang == SHADER_LANG_SPIRV)
+        {
+            compiler = std::unique_ptr<spirv_cross::CompilerGLSL>(new spirv_cross::CompilerGLSL(spirv));
+        }
+        else
+        {
             sx_assert(0 && "Language not implemented");
         }
 
-        spirv_cross::ShaderResources ress = compiler->get_shader_resources();
+        std::string code;
+        std::vector<int> old_locs;
+        spirv_cross::ShaderResources ress;
+
+        ress = compiler->get_shader_resources();
 
         spirv_cross::CompilerGLSL::Options opts = compiler->get_common_options();
         opts.flatten_multidimensional_arrays = true;
-        if (args.lang == SHADER_LANG_GLES) {
+        if (args.lang == SHADER_LANG_GLES)
+        {
             opts.es = true;
             opts.version = args.profile_ver;
-        } else if (args.lang == SHADER_LANG_GLSL) {
+        }
+        else if (args.lang == SHADER_LANG_GLSL)
+        {
             opts.enable_420pack_extension = false;
             opts.es = false;
             opts.version = args.profile_ver;
-        } else if (args.lang == SHADER_LANG_HLSL) {
-            spirv_cross::CompilerHLSL* hlsl = (spirv_cross::CompilerHLSL*)compiler.get();
+        }
+        else if (args.lang == SHADER_LANG_HLSL)
+        {
+            spirv_cross::CompilerHLSL *hlsl = (spirv_cross::CompilerHLSL *)compiler.get();
             spirv_cross::CompilerHLSL::Options hlsl_opts = hlsl->get_hlsl_options();
 
             hlsl_opts.shader_model = args.profile_ver;
@@ -1164,31 +1277,37 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
             hlsl->set_hlsl_options(hlsl_opts);
 
             uint32_t new_builtin = hlsl->remap_num_workgroups_builtin();
-            if (new_builtin) {
+            if (new_builtin)
+            {
                 hlsl->set_decoration(new_builtin, spv::DecorationDescriptorSet, 0);
                 hlsl->set_decoration(new_builtin, spv::DecorationBinding, 0);
             }
         }
 
         // Flatten ubos
-        if (args.flatten_ubos) {
-            for (auto& ubo : ress.uniform_buffers)
+        if (args.flatten_ubos)
+        {
+            for (auto &ubo : ress.uniform_buffers)
                 compiler->flatten_buffer_block(ubo.id);
-            for (auto& ubo : ress.push_constant_buffers)
+            for (auto &ubo : ress.push_constant_buffers)
                 compiler->flatten_buffer_block(ubo.id);
         }
 
         // Reset vertex input locations for MSL
-        std::vector<int> old_locs;
-        if (args.lang == SHADER_LANG_MSL && stage == EShLangVertex) {
-            for (int i = 0; i < ress.stage_inputs.size(); i++) {
-                spirv_cross::Resource& res = ress.stage_inputs[i];
+        if (args.lang == SHADER_LANG_MSL && stage == EShLangVertex)
+        {
+            for (int i = 0; i < ress.stage_inputs.size(); i++)
+            {
+                spirv_cross::Resource &res = ress.stage_inputs[i];
                 spirv_cross::Bitset mask = compiler->get_decoration_bitset(res.id);
 
-                if (mask.get(spv::DecorationLocation)) {
+                if (mask.get(spv::DecorationLocation))
+                {
                     old_locs.push_back(compiler->get_decoration(res.id, spv::DecorationLocation));
                     compiler->set_decoration(res.id, spv::DecorationLocation, (uint32_t)i);
-                } else {
+                }
+                else
+                {
                     old_locs.push_back(-1);
                 }
             }
@@ -1196,26 +1315,31 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
 
         compiler->set_common_options(opts);
 
-        std::string code;
         // Prepare vertex attribute remap for HLSL
-        if (args.lang == SHADER_LANG_HLSL) {
+        if (args.lang == SHADER_LANG_HLSL)
+        {
             // std::vector<spirv_cross::HLSLVertexAttributeRemap> remaps;
-            spirv_cross::CompilerHLSL* hlsl_compiler = (spirv_cross::CompilerHLSL*)compiler.get();
-            for (int i = 0; i < VERTEX_ATTRIB_COUNT; i++) {
-                spirv_cross::HLSLVertexAttributeRemap remap = { (uint32_t)i, k_attrib_names[i] };
+            spirv_cross::CompilerHLSL *hlsl_compiler = (spirv_cross::CompilerHLSL *)compiler.get();
+            for (int i = 0; i < VERTEX_ATTRIB_COUNT; i++)
+            {
+                spirv_cross::HLSLVertexAttributeRemap remap = {(uint32_t)i, k_attrib_names[i]};
                 // remaps.push_back(std::move(remap));
                 hlsl_compiler->add_vertex_attribute_remap(remap);
             }
 
             code = hlsl_compiler->compile();
-        } else {
+        }
+        else
+        {
             code = compiler->compile();
         }
 
         // Output code
-        if (g_sgs) {
+        if (g_sgs)
+        {
             uint32_t sstage;
-            switch (stage) {
+            switch (stage)
+            {
             case EShLangVertex:
                 sstage = SGS_STAGE_VERTEX;
                 break;
@@ -1230,11 +1354,13 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 break;
             }
 
-            if (args.compile_bin) {
+            if (args.compile_bin)
+            {
 #ifdef BYTECODE_COMPILATION
-                sx_mem_block* mem = compile_binary(code.c_str(), args.out_filepath, args.profile_ver,
-                    stage, args.debug_bin);
-                if (!mem) {
+                sx_mem_block *mem = compile_binary(code.c_str(), args.out_filepath, args.profile_ver,
+                                                   stage, args.debug_bin);
+                if (!mem)
+                {
                     printf("Bytecode compilation of '%s' failed\n", args.out_filepath);
                     return -1;
                 }
@@ -1242,18 +1368,28 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 sgs_add_stage_code_bin(g_sgs, sstage, mem->data, mem->size);
                 sx_mem_destroy_block(mem);
 #endif
-            } else {
-                sgs_add_stage_code(g_sgs, sstage, code.c_str());
+            }
+            else
+            {
+                if (args.lang != SHADER_LANG_SPIRV) {
+                    sgs_add_stage_code(g_sgs, sstage, code.c_str());
+                } else{
+                    sgs_add_stage_code_bin(g_sgs, sstage, spirv.data(), (int)spirv.size());
+                }
             }
 
-            if (args.reflect) {
+            if (args.reflect)
+            {
                 // turn back location attributs for reflection
-                if (!old_locs.empty()) {
+                if (!old_locs.empty())
+                {
                     sx_assert(old_locs.size() == ress.stage_inputs.size());
-                    for (int i = 0; i < ress.stage_inputs.size(); i++) {
-                        spirv_cross::Resource& res = ress.stage_inputs[i];
+                    for (int i = 0; i < ress.stage_inputs.size(); i++)
+                    {
+                        spirv_cross::Resource &res = ress.stage_inputs[i];
                         spirv_cross::Bitset mask = compiler->get_decoration_bitset(res.id);
-                        if (old_locs[i] != -1) {
+                        if (old_locs[i] != -1)
+                        {
                             sx_assert(mask.get(spv::DecorationLocation));
                             old_locs.push_back(compiler->get_decoration(res.id, spv::DecorationLocation));
                             compiler->set_decoration(res.id, spv::DecorationLocation, old_locs[i]);
@@ -1261,19 +1397,24 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                     }
                 }
 
-                sx_mem_block* mem = nullptr;
+                sx_mem_block *mem = nullptr;
                 output_reflection_bin(args, *compiler, ress, args.out_filepath, stage, &mem);
                 sgs_add_stage_reflect(g_sgs, sstage, mem->data, mem->size);
                 sx_mem_destroy_block(mem);
             }
-        } else {
+        }
+        else
+        {
             std::string cvar_code = args.cvar ? args.cvar : "";
             std::string filepath;
-            if (!cvar_code.empty()) {
+            if (!cvar_code.empty())
+            {
                 cvar_code += "_";
                 cvar_code += get_stage_name(stage);
                 filepath = args.out_filepath;
-            } else {
+            }
+            else
+            {
                 char ext[32];
                 char basename[512];
                 sx_os_path_splitext(ext, sizeof(ext), basename, sizeof(basename), args.out_filepath);
@@ -1282,38 +1423,48 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
             bool append = !cvar_code.empty() && (file_index > 0);
 
             // Check if we have to compile byte-code or output the source only
-            if (args.compile_bin) {
+            if (args.compile_bin)
+            {
 #ifdef BYTECODE_COMPILATION
-                sx_mem_block* mem = compile_binary(code.c_str(), filepath.c_str(), args.profile_ver,
-                    stage, args.debug_bin);
-                if (!mem) {
+                sx_mem_block *mem = compile_binary(code.c_str(), filepath.c_str(), args.profile_ver,
+                                                   stage, args.debug_bin);
+                if (!mem)
+                {
                     printf("Bytecode compilation of '%s' failed\n", filepath.c_str());
                     return -1;
                 }
 
-                if (!write_file(filepath.c_str(), (const char*)mem->data, cvar_code.c_str(), append, mem->size)) {
+                if (!write_file(filepath.c_str(), (const char *)mem->data, cvar_code.c_str(), append, mem->size))
+                {
                     printf("Writing to '%s' failed\n", filepath.c_str());
                     return -1;
                 }
 
                 sx_mem_destroy_block(mem);
 #endif
-            } else {
+            }
+            else
+            {
                 // output code file
-                if (!write_file(filepath.c_str(), code.c_str(), cvar_code.c_str(), append)) {
+                if (!write_file(filepath.c_str(), code.c_str(), cvar_code.c_str(), append))
+                {
                     printf("Writing to '%s' failed\n", filepath.c_str());
                     return -1;
                 }
             }
 
-            if (args.reflect) {
+            if (args.reflect)
+            {
                 // turn back location attributs for reflection
-                if (!old_locs.empty()) {
+                if (!old_locs.empty())
+                {
                     sx_assert(old_locs.size() == ress.stage_inputs.size());
-                    for (int i = 0; i < ress.stage_inputs.size(); i++) {
-                        spirv_cross::Resource& res = ress.stage_inputs[i];
+                    for (int i = 0; i < ress.stage_inputs.size(); i++)
+                    {
+                        spirv_cross::Resource &res = ress.stage_inputs[i];
                         spirv_cross::Bitset mask = compiler->get_decoration_bitset(res.id);
-                        if (old_locs[i] != -1) {
+                        if (old_locs[i] != -1)
+                        {
                             sx_assert(mask.get(spv::DecorationLocation));
                             old_locs.push_back(compiler->get_decoration(res.id, spv::DecorationLocation));
                             compiler->set_decoration(res.id, spv::DecorationLocation, old_locs[i]);
@@ -1329,18 +1480,24 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 output_reflection_json(args, *compiler, ress, filepath.c_str(), stage, &json_str, cvar_code.empty());
 
                 std::string reflect_filepath;
-                if (args.reflect_filepath) {
+                if (args.reflect_filepath)
+                {
                     reflect_filepath = args.reflect_filepath;
-                } else if (!cvar_code.empty()) {
+                }
+                else if (!cvar_code.empty())
+                {
                     reflect_filepath = filepath;
                     append = true;
-                } else {
+                }
+                else
+                {
                     reflect_filepath = filepath;
                     reflect_filepath += ".json";
                 }
 
                 std::string cvar_refl = !cvar_code.empty() ? (cvar_code + "_refl") : "";
-                if (!write_file(reflect_filepath.c_str(), json_str.c_str(), cvar_refl.c_str(), append)) {
+                if (!write_file(reflect_filepath.c_str(), json_str.c_str(), cvar_refl.c_str(), append))
+                {
                     printf("Writing to '%s' failed", reflect_filepath.c_str());
                     return -1;
                 }
@@ -1350,15 +1507,18 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
         if (!args.silent)
             puts(filename); // SUCCESS
         return 0;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception &e)
+    {
         printf("SPIRV-cross: %s\n", e.what());
         return -1;
     }
 }
 
-struct compile_file_desc {
+struct compile_file_desc
+{
     EShLanguage stage;
-    const char* filename;
+    const char *filename;
     uint32_t offset;
     uint32_t size;
 };
@@ -1371,32 +1531,39 @@ struct compile_file_desc {
     glslang::FinalizeProcess();    \
     return _code;
 
-struct output_parse_result {
+struct output_parse_result
+{
     std::string file;
     std::string err;
     int line;
 };
 
-static bool parse_output_log_detect_line(const char** str)
+static bool parse_output_log_detect_line(const char **str)
 {
-    const char* err_header = "ERROR: ";
-    const char* warn_header = "WARNING: ";
+    const char *err_header = "ERROR: ";
+    const char *warn_header = "WARNING: ";
 
-    if (sx_strstr(*str, err_header) == *str) {
+    if (sx_strstr(*str, err_header) == *str)
+    {
         *str = *str + sx_strlen(err_header);
         return true;
-    } else if (sx_strstr(*str, warn_header) == *str) {
+    }
+    else if (sx_strstr(*str, warn_header) == *str)
+    {
         *str = *str + sx_strlen(warn_header);
         return true;
-    } else {
+    }
+    else
+    {
         return false;
     }
 }
 
-static bool parse_output_log(const char* str, std::vector<output_parse_result>* r)
+static bool parse_output_log(const char *str, std::vector<output_parse_result> *r)
 {
-    while (parse_output_log_detect_line(&str)) {
-        const char* divider = sx_strchar(str, ':');
+    while (parse_output_log_detect_line(&str))
+    {
+        const char *divider = sx_strchar(str, ':');
         if (!divider)
             return r->size() > 0;
         output_parse_result lr;
@@ -1406,15 +1573,18 @@ static bool parse_output_log(const char* str, std::vector<output_parse_result>* 
         // sx_strncpy(file, file_sz, str, (intptr_t)(divider - str));
         lr.file.assign(str, divider);
         lr.line = sx_toint(divider + 1);
-        const char* next_divider = sx_strchar(divider + 1, ':');
+        const char *next_divider = sx_strchar(divider + 1, ':');
         sx_assert(next_divider);
         // sx_strcpy(desc, desc_sz, next_divider + 1);
-        const char* line_sep = sx_strchar(next_divider + 1, '\n');
+        const char *line_sep = sx_strchar(next_divider + 1, '\n');
         std::string err;
-        if (line_sep) {
+        if (line_sep)
+        {
             lr.err.assign(next_divider + 1, line_sep);
             str = line_sep + 1;
-        } else {
+        }
+        else
+        {
             lr.err.assign(next_divider + 1);
             str += err.length();
         }
@@ -1424,27 +1594,36 @@ static bool parse_output_log(const char* str, std::vector<output_parse_result>* 
     return true;
 }
 
-static void output_error(const char* err_str, const cmd_args& args, const char* filename, int start_line = 0)
+static void output_error(const char *err_str, const cmd_args &args, const char *filename, int start_line = 0)
 {
-    if (err_str && err_str[0]) {
+    if (err_str && err_str[0])
+    {
         std::vector<output_parse_result> lines;
         parse_output_log(err_str, &lines);
-        if (args.err_format == OUTPUT_ERRORFORMAT_GLSLANG) {
+        if (args.err_format == OUTPUT_ERRORFORMAT_GLSLANG)
+        {
             fprintf(stdout, "%s\n", filename);
             for (std::vector<output_parse_result>::iterator il = lines.begin();
-                 il != lines.end(); ++il) {
+                 il != lines.end(); ++il)
+            {
                 fprintf(stdout, "ERROR: 0:%d:%s\n", il->line + start_line, il->err.c_str());
             }
-        } else if (args.err_format == OUTPUT_ERRORFORMAT_MSVC) {
+        }
+        else if (args.err_format == OUTPUT_ERRORFORMAT_MSVC)
+        {
             for (std::vector<output_parse_result>::iterator il = lines.begin();
-                 il != lines.end(); ++il) {
+                 il != lines.end(); ++il)
+            {
                 char fullpath[256];
                 sx_os_path_abspath(fullpath, sizeof(fullpath), il->file.c_str());
                 fprintf(stderr, "%s(%d,0): error:%s\n", fullpath, il->line + start_line, il->err.c_str());
             }
-        } else if (args.err_format == OUTPUT_ERRORFORMAT_GCC) {
+        }
+        else if (args.err_format == OUTPUT_ERRORFORMAT_GCC)
+        {
             for (std::vector<output_parse_result>::iterator il = lines.begin();
-                 il != lines.end(); ++il) {
+                 il != lines.end(); ++il)
+            {
                 char fullpath[256];
                 sx_os_path_abspath(fullpath, sizeof(fullpath), il->file.c_str());
                 fprintf(stderr, "%s:%d:0: error:%s\n", fullpath, il->line + start_line, il->err.c_str());
@@ -1453,13 +1632,14 @@ static void output_error(const char* err_str, const cmd_args& args, const char* 
     }
 }
 
-
-
-static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
+static int compile_files(cmd_args &args, const TBuiltInResource &limits_conf)
 {
-    auto destroy_shaders = [](glslang::TShader**& shaders) {
-        for (int i = 0; i < sx_array_count(shaders); i++) {
-            if (shaders[i]) {
+    auto destroy_shaders = [](glslang::TShader **&shaders)
+    {
+        for (int i = 0; i < sx_array_count(shaders); i++)
+        {
+            if (shaders[i])
+            {
                 shaders[i]->~TShader();
                 sx_free(g_alloc, shaders[i]);
             }
@@ -1467,30 +1647,40 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         sx_array_free(g_alloc, shaders);
     };
 
-    auto find_end_block = [](const char* text)->const char* {
-        const char* end_block = sx_strstr(text, "//@end");
-        if (end_block) {
-            if (*(end_block - 1) == '\n') {
-                if (!end_block[6] || sx_isspace(end_block[6])) {
+    auto find_end_block = [](const char *text) -> const char *
+    {
+        const char *end_block = sx_strstr(text, "//@end");
+        if (end_block)
+        {
+            if (*(end_block - 1) == '\n')
+            {
+                if (!end_block[6] || sx_isspace(end_block[6]))
+                {
                     return end_block;
                 }
             }
             return nullptr;
-        } else {
+        }
+        else
+        {
             return nullptr;
         }
     };
 
-    auto calculate_start_line = [](const char* source, int end_offset)->int
+    auto calculate_start_line = [](const char *source, int end_offset) -> int
     {
         int count = 0;
-        const char* start = source;
-        while (1) {
+        const char *start = source;
+        while (1)
+        {
             source = sx_strchar(source, '\n');
-            if (source && uintptr_t(source - start) < end_offset) {
+            if (source && uintptr_t(source - start) < end_offset)
+            {
                 count++;
                 ++source;
-            } else {
+            }
+            else
+            {
                 break;
             }
         }
@@ -1500,65 +1690,75 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
     glslang::InitializeProcess();
 
     // Gather files for compilation
-    compile_file_desc* files = nullptr;
+    compile_file_desc *files = nullptr;
 
-    if ((args.vs_filepath || args.fs_filepath) && args.vs_filepath == args.fs_filepath) {
+    if ((args.vs_filepath || args.fs_filepath) && args.vs_filepath == args.fs_filepath)
+    {
         char ext[32];
         sx_os_path_ext(ext, sizeof(ext), args.vs_filepath);
         sx_assert(sx_strequalnocase(ext, ".glsl"));
 
         // open the file and check for special tags
-        sx_mem_block* mem = sx_file_load_text(g_alloc, args.vs_filepath);
-        if (!mem) {
+        sx_mem_block *mem = sx_file_load_text(g_alloc, args.vs_filepath);
+        if (!mem)
+        {
             printf("opening file '%s' failed\n", args.vs_filepath);
             return -1;
         }
 
-        const char* text = (const char*)mem->data;
+        const char *text = (const char *)mem->data;
         text = sx_skip_whitespace(text);
 
-        while (*text) {
-            if (sx_strnequal(text, "//@begin_", 9)) {
+        while (*text)
+        {
+            if (sx_strnequal(text, "//@begin_", 9))
+            {
                 text += 9;
-                if (sx_strnequal(text, "vert", 4) && (text[4]=='\n' || (text[4]=='\r'&&text[5]=='\n'))) {
-                    text += (text[4]=='\r'&&text[5]=='\n') ? 6 : 5;
-                    const char* end_block = find_end_block(text);
-                    if (!end_block) {
+                if (sx_strnequal(text, "vert", 4) && (text[4] == '\n' || (text[4] == '\r' && text[5] == '\n')))
+                {
+                    text += (text[4] == '\r' && text[5] == '\n') ? 6 : 5;
+                    const char *end_block = find_end_block(text);
+                    if (!end_block)
+                    {
                         printf("no matching //@end found with //@begin: %s\n", args.vs_filepath);
                         return -1;
                     }
 
                     compile_file_desc d = {
-                        EShLangVertex, 
-                        args.vs_filepath, 
-                        static_cast<uint32_t>(text - (const char*)mem->data),
-                        static_cast<uint32_t>(end_block - text)
-                    };
+                        EShLangVertex,
+                        args.vs_filepath,
+                        static_cast<uint32_t>(text - (const char *)mem->data),
+                        static_cast<uint32_t>(end_block - text)};
                     sx_array_push(g_alloc, files, d);
 
                     text = end_block + 6;
-                } else if (sx_strnequal(text, "frag", 4) && (text[4]=='\n' || (text[4]=='\r'&&text[5]=='\n'))) {
-                    text += (text[4]=='\r'&&text[5]=='\n') ? 6 : 5;
-                    const char* end_block = find_end_block(text);
-                    if (!end_block) {
+                }
+                else if (sx_strnequal(text, "frag", 4) && (text[4] == '\n' || (text[4] == '\r' && text[5] == '\n')))
+                {
+                    text += (text[4] == '\r' && text[5] == '\n') ? 6 : 5;
+                    const char *end_block = find_end_block(text);
+                    if (!end_block)
+                    {
                         printf("no matching //@end found with //@begin: %s\n", args.fs_filepath);
                         return -1;
                     }
                     compile_file_desc d = {
                         EShLangFragment,
                         args.vs_filepath,
-                        static_cast<uint32_t>(text - (const char*)mem->data),
-                        static_cast<uint32_t>(end_block - text)
-                    };
+                        static_cast<uint32_t>(text - (const char *)mem->data),
+                        static_cast<uint32_t>(end_block - text)};
                     sx_array_push(g_alloc, files, d);
 
                     text = end_block + 6;
-                } else {
+                }
+                else
+                {
                     printf("invalid @begin tag in '%s'\n", args.vs_filepath);
                 }
-            } 
-            const char* next_text = sx_skip_whitespace(text);
-            if (next_text == text) {
+            }
+            const char *next_text = sx_skip_whitespace(text);
+            if (next_text == text)
+            {
                 break;
             }
             text = next_text;
@@ -1567,31 +1767,38 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         sx_mem_destroy_block(mem);
 
         // the offsets should not have any conflict with each other
-        for (int i = 0; i < sx_array_count(files) - 1; i++) {
-            if (files[i].offset + files[i].size > files[i+1].offset) {
+        for (int i = 0; i < sx_array_count(files) - 1; i++)
+        {
+            if (files[i].offset + files[i].size > files[i + 1].offset)
+            {
                 printf("invalid @begin @end shader blocks: %s\n", args.vs_filepath);
                 return -1;
             }
         }
-    } else {
-        if (args.vs_filepath) {
-            compile_file_desc d = { EShLangVertex, args.vs_filepath };
+    }
+    else
+    {
+        if (args.vs_filepath)
+        {
+            compile_file_desc d = {EShLangVertex, args.vs_filepath};
             sx_array_push(g_alloc, files, d);
         }
 
-        if (args.fs_filepath) {
-            compile_file_desc d = { EShLangFragment, args.fs_filepath };
+        if (args.fs_filepath)
+        {
+            compile_file_desc d = {EShLangFragment, args.fs_filepath};
             sx_array_push(g_alloc, files, d);
         }
 
-        if (args.cs_filepath) {
-            compile_file_desc d = { EShLangCompute, args.cs_filepath };
+        if (args.cs_filepath)
+        {
+            compile_file_desc d = {EShLangCompute, args.cs_filepath};
             sx_array_push(g_alloc, files, d);
         }
     }
 
-    glslang::TProgram* prog = new (sx_malloc(g_alloc, sizeof(glslang::TProgram))) glslang::TProgram();
-    glslang::TShader** shaders = nullptr;
+    glslang::TProgram *prog = new (sx_malloc(g_alloc, sizeof(glslang::TProgram))) glslang::TProgram();
+    glslang::TShader **shaders = nullptr;
 
     // TODO: add more options for messaging options
     EShMessages messages = EShMsgDefault;
@@ -1600,51 +1807,59 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
     // construct semantics mapping defines
     // to be used in layout(location = SEMANTIC) inside GLSL
     std::string semantics_def;
-    for (int i = 0; i < VERTEX_ATTRIB_COUNT; i++) {
+    for (int i = 0; i < VERTEX_ATTRIB_COUNT; i++)
+    {
         char sem_line[128];
         sx_snprintf(sem_line, sizeof(sem_line), "#define %s %d\n", k_attrib_names[i], i);
         semantics_def += std::string(sem_line);
     }
 
     // Add SV_Target semantics for more HLSL compatibility
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++)
+    {
         char sv_target_line[128];
         sx_snprintf(sv_target_line, sizeof(sv_target_line), "#define SV_Target%d %d\n", i, i);
         semantics_def += std::string(sv_target_line);
     }
 
-    for (int i = 0; i < sx_array_count(files); i++) {
+    for (int i = 0; i < sx_array_count(files); i++)
+    {
         // Always set include_directive in the preamble, because we may need to include shaders
         std::string def("#extension GL_GOOGLE_include_directive : require\n");
         def += semantics_def;
 
-        if (args.lang == SHADER_LANG_GLES && args.profile_ver == 200) {
+        if (args.lang == SHADER_LANG_GLES && args.profile_ver == 200)
+        {
             def += std::string("#define flat\n");
         }
 
         // Read target file
-        sx_mem_block* mem = sx_file_load_bin(g_alloc, files[i].filename);
-        if (!mem) {
+        sx_mem_block *mem = sx_file_load_bin(g_alloc, files[i].filename);
+        if (!mem)
+        {
             printf("opening file '%s' failed\n", files[i].filename);
             compile_files_ret(-1);
         }
 
-        glslang::TShader* shader = new (sx_malloc(g_alloc, sizeof(glslang::TShader))) glslang::TShader(files[i].stage);
+        glslang::TShader *shader = new (sx_malloc(g_alloc, sizeof(glslang::TShader))) glslang::TShader(files[i].stage);
         sx_assert(shader);
         sx_array_push(g_alloc, shaders, shader);
 
-        char* shader_str;
+        char *shader_str;
         int shader_len;
         int start_line = 0;
-        if (files[i].size == 0) {
-            shader_str = (char*)mem->data;
+        if (files[i].size == 0)
+        {
+            shader_str = (char *)mem->data;
             shader_len = (int)mem->size;
-        } else {
-            shader_str = (char*)mem->data + files[i].offset;
+        }
+        else
+        {
+            shader_str = (char *)mem->data + files[i].offset;
             shader_len = (int)files[i].size;
-            start_line = calculate_start_line((const char*)mem->data, files[i].offset);
+            start_line = calculate_start_line((const char *)mem->data, files[i].offset);
 
-            #if 0   // TODO: remove later
+#if 0 // TODO: remove later
             const char* version = "#version 450\n";
             int version_sz = sx_strlen(version);
             shader_str = (char*)sx_malloc(g_alloc, files[i].size + version_sz);
@@ -1653,7 +1868,7 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
             sx_memcpy(shader_str + version_sz, (char*)mem->data + files[i].offset, files[i].size);
             shader_len = files[i].size + version_sz;
 
-            #endif
+#endif
         }
         shader->setStringsWithLengthsAndNames(&shader_str, &shader_len, &files[i].filename, 1);
         shader->setInvertY(args.invert_y ? true : false);
@@ -1669,22 +1884,30 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         includer.addSystemDir(cur_file_dir);
         includer.addIncluder(args.includer);
 
-        if (args.preprocess || args.list_includes) {
-            if (shader->preprocess(&limits_conf, default_version, ENoProfile, false, false, messages, &prep_str, includer)) {
-                if (args.preprocess) {
+        if (args.preprocess || args.list_includes)
+        {
+            if (shader->preprocess(&limits_conf, default_version, ENoProfile, false, false, messages, &prep_str, includer))
+            {
+                if (args.preprocess)
+                {
                     puts("-------------------");
                     printf("%s:\n", files[i].filename);
                     puts("-------------------");
                     puts(prep_str.c_str());
                     puts("");
                 }
-            } else {
+            }
+            else
+            {
                 output_error(shader->getInfoLog(), args, files[i].filename, start_line);
                 sx_mem_destroy_block(mem);
                 compile_files_ret(-1);
             }
-        } else {
-            if (!shader->parse(&limits_conf, default_version, false, messages, includer)) {
+        }
+        else
+        {
+            if (!shader->parse(&limits_conf, default_version, false, messages, includer))
+            {
                 output_error(shader->getInfoLog(), args, files[i].filename, start_line);
                 sx_mem_destroy_block(mem);
                 compile_files_ret(-1);
@@ -1698,11 +1921,13 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
     } // foreach (file)
 
     // In preprocess mode, do not link, just exit
-    if (args.preprocess || args.validate || args.list_includes) {
+    if (args.preprocess || args.validate || args.list_includes)
+    {
         compile_files_ret(0);
     }
 
-    if (!prog->link(messages)) {
+    if (!prog->link(messages))
+    {
         puts("Link failed: ");
         fprintf(stderr, "%s\n", prog->getInfoLog());
         fprintf(stderr, "%s\n", prog->getInfoDebugLog());
@@ -1710,7 +1935,8 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
     }
 
     // Output and save SPIR-V for each shader
-    for (int i = 0; i < sx_array_count(files); i++) {
+    for (int i = 0; i < sx_array_count(files); i++)
+    {
         std::vector<uint32_t> spirv;
 
         glslang::SpvOptions spv_opts;
@@ -1722,7 +1948,8 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         if (!logger.getAllMessages().empty())
             puts(logger.getAllMessages().c_str());
 
-        if (cross_compile(args, spirv, files[i].filename, files[i].stage, i) != 0) {
+        if (cross_compile(args, spirv, files[i].filename, files[i].stage, i) != 0)
+        {
             compile_files_ret(-1);
         }
     }
@@ -1737,17 +1964,24 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
     return 0;
 }
 
-static void detect_input_file(cmd_args* args, const char* file)
+static void detect_input_file(cmd_args *args, const char *file)
 {
     char ext[32];
     sx_os_path_ext(ext, sizeof(ext), file);
-    if (sx_strequalnocase(ext, ".vert")) {
+    if (sx_strequalnocase(ext, ".vert"))
+    {
         args->vs_filepath = file;
-    } else if (sx_strequalnocase(ext, ".frag")) {
+    }
+    else if (sx_strequalnocase(ext, ".frag"))
+    {
         args->fs_filepath = file;
-    } else if (sx_strequalnocase(ext, ".comp")) {
+    }
+    else if (sx_strequalnocase(ext, ".comp"))
+    {
         args->cs_filepath = file;
-    } else if (sx_strequalnocase(ext, ".glsl")) {
+    }
+    else if (sx_strequalnocase(ext, ".glsl"))
+    {
         // take a wild guess and put it in both args
         // later, we will look for special tags inside the file to extract the source for each stage
         args->vs_filepath = file;
@@ -1755,7 +1989,7 @@ static void detect_input_file(cmd_args* args, const char* file)
     }
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     cmd_args args = {};
     args.lang = SHADER_LANG_COUNT;
@@ -1765,41 +1999,42 @@ int main(int argc, char* argv[])
     int dump_conf = 0;
 
     const sx_cmdline_opt opts[] = {
-        { "help", 'h', SX_CMDLINE_OPTYPE_NO_ARG, 0x0, 'h', "Print this help text", 0x0 },
-        { "version", 'V', SX_CMDLINE_OPTYPE_FLAG_SET, &version, 1, "Print version", 0x0 },
-        { "vert", 'v', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'v', "Vertex shader source file", "Filepath" },
-        { "frag", 'f', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'f', "Fragment shader source file", "Filepath" },
-        { "compute", 'c', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'c', "Compute shader source file", "Filepath" },
-        { "output", 'o', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'o', "Output file", "Filepath" },
-        { "lang", 'l', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'l', "Convert to shader language", "gles/msl/hlsl/glsl" },
-        { "defines", 'D', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'D', "Preprocessor definitions, seperated by comma or ';'", "Defines" },
-        { "invert-y", 'Y', SX_CMDLINE_OPTYPE_FLAG_SET, &args.invert_y, 1, "Invert position.y in vertex shader", 0x0 },
-        { "profile", 'p', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'p', "Shader profile version (HLSL: 40, 50, 60), (ES: 200, 300), (GLSL: 330, 400, 420)", "ProfileVersion" },
-        { "dumpc", 'C', SX_CMDLINE_OPTYPE_FLAG_SET, &dump_conf, 1, "Dump shader limits configuration", 0x0 },
-        { "include-dirs", 'I', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'I', "Set include directory for <system> files, seperated by ';'", "Directory(s)" },
-        { "preprocess", 'P', SX_CMDLINE_OPTYPE_FLAG_SET, &args.preprocess, 1, "Dump preprocessed result to terminal" },
-        { "cvar", 'N', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'N', "Outputs Hex data to a C include file with a variable name", "VariableName" },
-        { "flatten-ubos", 'F', SX_CMDLINE_OPTYPE_FLAG_SET, &args.flatten_ubos, 1, "Flatten UBOs, useful for ES2 shaders", 0x0 },
-        { "reflect", 'r', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'r', "Output shader reflection information to a json file", "Filepath" },
-        { "sgs", 'G', SX_CMDLINE_OPTYPE_FLAG_SET, &args.sgs_file, 1, "Output file should be packed SGS format", "Filepath" },
-        { "bin", 'b', SX_CMDLINE_OPTYPE_FLAG_SET, &args.compile_bin, 1, "Compile to bytecode instead of source. requires ENABLE_D3D11_COMPILER build flag", 0x0 },
-        { "debug", 'g', SX_CMDLINE_OPTYPE_FLAG_SET, &args.debug_bin, 1, "Generate debug info for binary compilation, should come with --bin", 0x0 },
-        { "optimize", 'O', SX_CMDLINE_OPTYPE_FLAG_SET, &args.optimize, 1, "Optimize shader for release compilation", 0x0 },
-        { "silent", 'S', SX_CMDLINE_OPTYPE_FLAG_SET, &args.silent, 1, "Does not output filename(s) after compile success" },
-        { "input", 'i', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'i', "Input shader source file. determined by extension (.vert/.frag/.comp)", 0x0 },
-        { "validate", '0', SX_CMDLINE_OPTYPE_FLAG_SET, &args.validate, 1, "Only performs shader validatation and error checking", 0x0 },
-        { "err-format", 'E', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'E', "Output error format", "glslang/msvc" },
-        { "list-includes", 'L', SX_CMDLINE_OPTYPE_FLAG_SET, &args.list_includes, 1, "List include files in shaders, does not generate any output files", 0x0},
-        SX_CMDLINE_OPT_END
-    };
-    sx_cmdline_context* cmdline = sx_cmdline_create_context(g_alloc, argc, (const char**)argv, opts);
+        {"help", 'h', SX_CMDLINE_OPTYPE_NO_ARG, 0x0, 'h', "Print this help text", 0x0},
+        {"version", 'V', SX_CMDLINE_OPTYPE_FLAG_SET, &version, 1, "Print version", 0x0},
+        {"vert", 'v', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'v', "Vertex shader source file", "Filepath"},
+        {"frag", 'f', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'f', "Fragment shader source file", "Filepath"},
+        {"compute", 'c', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'c', "Compute shader source file", "Filepath"},
+        {"output", 'o', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'o', "Output file", "Filepath"},
+        {"lang", 'l', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'l', "Convert to shader language", "gles/msl/hlsl/glsl"},
+        {"defines", 'D', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'D', "Preprocessor definitions, seperated by comma or ';'", "Defines"},
+        {"invert-y", 'Y', SX_CMDLINE_OPTYPE_FLAG_SET, &args.invert_y, 1, "Invert position.y in vertex shader", 0x0},
+        {"profile", 'p', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'p', "Shader profile version (HLSL: 40, 50, 60), (ES: 200, 300), (GLSL: 330, 400, 420)", "ProfileVersion"},
+        {"dumpc", 'C', SX_CMDLINE_OPTYPE_FLAG_SET, &dump_conf, 1, "Dump shader limits configuration", 0x0},
+        {"include-dirs", 'I', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'I', "Set include directory for <system> files, seperated by ';'", "Directory(s)"},
+        {"preprocess", 'P', SX_CMDLINE_OPTYPE_FLAG_SET, &args.preprocess, 1, "Dump preprocessed result to terminal"},
+        {"cvar", 'N', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'N', "Outputs Hex data to a C include file with a variable name", "VariableName"},
+        {"flatten-ubos", 'F', SX_CMDLINE_OPTYPE_FLAG_SET, &args.flatten_ubos, 1, "Flatten UBOs, useful for ES2 shaders", 0x0},
+        {"reflect", 'r', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'r', "Output shader reflection information to a json file", "Filepath"},
+        {"sgs", 'G', SX_CMDLINE_OPTYPE_FLAG_SET, &args.sgs_file, 1, "Output file should be packed SGS format", "Filepath"},
+        {"bin", 'b', SX_CMDLINE_OPTYPE_FLAG_SET, &args.compile_bin, 1, "Compile to bytecode instead of source. requires ENABLE_D3D11_COMPILER build flag", 0x0},
+        {"debug", 'g', SX_CMDLINE_OPTYPE_FLAG_SET, &args.debug_bin, 1, "Generate debug info for binary compilation, should come with --bin", 0x0},
+        {"optimize", 'O', SX_CMDLINE_OPTYPE_FLAG_SET, &args.optimize, 1, "Optimize shader for release compilation", 0x0},
+        {"silent", 'S', SX_CMDLINE_OPTYPE_FLAG_SET, &args.silent, 1, "Does not output filename(s) after compile success"},
+        {"input", 'i', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'i', "Input shader source file. determined by extension (.vert/.frag/.comp)", 0x0},
+        {"validate", '0', SX_CMDLINE_OPTYPE_FLAG_SET, &args.validate, 1, "Only performs shader validatation and error checking", 0x0},
+        {"err-format", 'E', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'E', "Output error format", "glslang/msvc"},
+        {"list-includes", 'L', SX_CMDLINE_OPTYPE_FLAG_SET, &args.list_includes, 1, "List include files in shaders, does not generate any output files", 0x0},
+        SX_CMDLINE_OPT_END};
+    sx_cmdline_context *cmdline = sx_cmdline_create_context(g_alloc, argc, (const char **)argv, opts);
 
-    // always include the 
+    // always include the
 
     int opt;
-    const char* arg;
-    while ((opt = sx_cmdline_next(cmdline, NULL, &arg)) != -1) {
-        switch (opt) {
+    const char *arg;
+    while ((opt = sx_cmdline_next(cmdline, NULL, &arg)) != -1)
+    {
+        switch (opt)
+        {
         case '+':
             detect_input_file(&args, arg);
             break;
@@ -1856,42 +2091,50 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (version) {
+    if (version)
+    {
         print_version();
         exit(0);
     }
 
-    if (dump_conf) {
+    if (dump_conf)
+    {
         puts(get_default_conf_str().c_str());
         exit(0);
     }
 
-    if ((args.vs_filepath && !sx_os_path_isfile(args.vs_filepath)) || (args.fs_filepath && !sx_os_path_isfile(args.fs_filepath)) || (args.cs_filepath && !sx_os_path_isfile(args.cs_filepath))) {
+    if ((args.vs_filepath && !sx_os_path_isfile(args.vs_filepath)) || (args.fs_filepath && !sx_os_path_isfile(args.fs_filepath)) || (args.cs_filepath && !sx_os_path_isfile(args.cs_filepath)))
+    {
         puts("Input files are invalid");
         exit(-1);
     }
 
-    if (!args.vs_filepath && !args.fs_filepath && !args.cs_filepath) {
+    if (!args.vs_filepath && !args.fs_filepath && !args.cs_filepath)
+    {
         puts("You must at least define one input shader file");
         exit(-1);
     }
 
-    if (args.cs_filepath && (args.vs_filepath || args.fs_filepath)) {
+    if (args.cs_filepath && (args.vs_filepath || args.fs_filepath))
+    {
         puts("Cannot link compute-shader with either fragment shader or vertex shader");
         exit(-1);
     }
 
-    if (args.out_filepath == nullptr && !(args.preprocess | args.validate | args.list_includes)) {
+    if (args.out_filepath == nullptr && !(args.preprocess | args.validate | args.list_includes))
+    {
         puts("Output file is not specified");
         exit(-1);
     }
 
-    if (args.lang == SHADER_LANG_COUNT && !(args.preprocess | args.validate | args.list_includes)) {
+    if (args.lang == SHADER_LANG_COUNT && !(args.preprocess | args.validate | args.list_includes))
+    {
         puts("Shader language is not specified");
         exit(-1);
     }
 
-    if (args.out_filepath) {
+    if (args.out_filepath)
+    {
         // determine if we output SGS format automatically
         char ext[32];
         sx_os_path_ext(ext, sizeof(ext), args.out_filepath);
@@ -1902,7 +2145,8 @@ int main(int argc, char* argv[])
     // Set default shader profile version
     // HLSL: 50 (5.0)
     // GLSL: 200 (2.00)
-    if (args.profile_ver == 0) {
+    if (args.profile_ver == 0)
+    {
         if (args.lang == SHADER_LANG_GLES)
             args.profile_ver = 200;
         else if (args.lang == SHADER_LANG_HLSL)
@@ -1912,27 +2156,32 @@ int main(int argc, char* argv[])
     }
 
 #if SX_PLATFORM_WINDOWS
-    if (args.compile_bin && (args.lang != SHADER_LANG_HLSL || args.profile_ver >= 60)) {
+    if (args.compile_bin && (args.lang != SHADER_LANG_HLSL || args.profile_ver >= 60))
+    {
         puts("ignoring --bin flag, byte-code compilation not implemented for this target");
         args.compile_bin = 0;
     }
 #ifndef D3D11_COMPILER
     // Windows + HLSL -> works but requires ENABLE_D3D11_COMPILER
-    else if (args.compile_bin) {
+    else if (args.compile_bin)
+    {
         puts("Cannot compile to byte-code, glslcc is not built with ENABLE_D3D11_COMPILER flag");
         exit(-1);
     }
 #endif
 #else
-    if (args.compile_bin) {
+    if (args.compile_bin)
+    {
         puts("Ignoring --bin flag, byte-code compilation not implemented for this target");
         args.compile_bin = 0;
     }
 #endif
 
-    if (args.sgs_file && !(args.preprocess | args.validate | args.list_includes)) {
+    if (args.sgs_file && !(args.preprocess | args.validate | args.list_includes))
+    {
         uint32_t slang = 0;
-        switch (args.lang) {
+        switch (args.lang)
+        {
         case SHADER_LANG_GLES:
             slang = SGS_LANG_GLES;
             break;
@@ -1945,6 +2194,9 @@ int main(int argc, char* argv[])
         case SHADER_LANG_GLSL:
             slang = SGS_LANG_GLSL;
             break;
+        case SHADER_LANG_SPIRV:
+            slang = SGS_LANG_SPIRV;
+            break;
         default:
             sx_assert(0);
             break;
@@ -1955,8 +2207,10 @@ int main(int argc, char* argv[])
 
     int r = compile_files(args, k_default_conf);
 
-    if (g_sgs) {
-        if (r == 0 && !sgs_commit(g_sgs)) {
+    if (g_sgs)
+    {
+        if (r == 0 && !sgs_commit(g_sgs))
+        {
             printf("Writing SGS file '%s' failed\n", args.out_filepath);
         }
         sgs_destroy_file(g_sgs);
